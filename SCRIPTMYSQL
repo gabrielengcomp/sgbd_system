@@ -1,0 +1,115 @@
+SCRIPT MYSQL
+-- Tabelas para telefones
+CREATE TABLE Tel_Cliente (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    CPF_cliente CHAR(11),
+    numero VARCHAR(15) NOT NULL,
+    FOREIGN KEY (CPF_cliente) REFERENCES Cliente(CPF)
+);
+
+CREATE TABLE Tel_Fiador (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    CPF_inquilino CHAR(11),
+    nome_fiador VARCHAR(100),
+    numero VARCHAR(15) NOT NULL,
+    FOREIGN KEY (CPF_inquilino) REFERENCES Inquilino(CPF),
+    FOREIGN KEY (nome_fiador) REFERENCES Fiador(nome_fiador)
+);
+
+CREATE TABLE Tel_Corretor (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    CRECI CHAR(10),
+    numero VARCHAR(15) NOT NULL,
+    FOREIGN KEY (CRECI) REFERENCES Corretor(CRECI)
+);
+
+-- Criação das tabelas principais
+CREATE TABLE Corretor (
+    CRECI CHAR(10) PRIMARY KEY,
+    Nome_corretor VARCHAR(100) NOT NULL,
+    dt_inicio DATE NOT NULL,
+    comissao DECIMAL(10, 2) NOT NULL
+);
+
+CREATE TABLE Cliente (
+    CPF CHAR(11) PRIMARY KEY,
+    Nome_cliente VARCHAR(100) NOT NULL,
+    Estado_Civil VARCHAR(20)
+);
+
+CREATE TABLE Imovel (
+    num_registro INT PRIMARY KEY AUTO_INCREMENT,
+    Endereco_cidade VARCHAR(100) NOT NULL,
+    Endereco_rua VARCHAR(100) NOT NULL,
+    Endereco_num INT NOT NULL,
+    Area DECIMAL(10, 2) NOT NULL,
+    num_comodos INT NOT NULL,
+    Vagas INT,
+    Valor_imovel DECIMAL(15, 2) NOT NULL,
+    dt_registro DATE NOT NULL
+);
+
+CREATE TABLE Inquilino (
+    CPF CHAR(11) PRIMARY KEY,
+    Renda DECIMAL(15, 2) NOT NULL,
+    FOREIGN KEY (CPF) REFERENCES Cliente(CPF)
+);
+
+CREATE TABLE Proprietario (
+    CPF CHAR(11) PRIMARY KEY,
+    Profissao VARCHAR(100),
+    FOREIGN KEY (CPF) REFERENCES Cliente(CPF)
+);
+
+CREATE TABLE Fiador (
+    CPF_inquilino CHAR(11),
+    nome_fiador VARCHAR(100) NOT NULL,
+    Saldo DECIMAL(15, 2) NOT NULL,
+    PRIMARY KEY (CPF_inquilino, nome_fiador),
+    FOREIGN KEY (CPF_inquilino) REFERENCES Inquilino(CPF)
+);
+
+-- Relacionamentos
+CREATE TABLE Responsavel (
+    CRECI CHAR(10),
+    num_registro INT,
+    PRIMARY KEY (CRECI, num_registro),
+    FOREIGN KEY (CRECI) REFERENCES Corretor(CRECI),
+    FOREIGN KEY (num_registro) REFERENCES Imovel(num_registro)
+);
+
+CREATE TABLE Visita (
+    CRECI CHAR(10),
+    num_registro INT,
+    CPF_inquilino CHAR(11),
+    dt_visita DATE NOT NULL,
+    hr_visita TIME NOT NULL,
+    PRIMARY KEY (CRECI, num_registro, CPF_inquilino, dt_visita),
+    FOREIGN KEY (CRECI) REFERENCES Corretor(CRECI),
+    FOREIGN KEY (num_registro) REFERENCES Imovel(num_registro),
+    FOREIGN KEY (CPF_inquilino) REFERENCES Inquilino(CPF)
+);
+
+CREATE TABLE Proposta (
+    CPF_inquilino CHAR(11),
+    num_registro INT,
+    dt_proposta DATE NOT NULL,
+    valor_proposta DECIMAL(15, 2) NOT NULL,
+    validade DATE NOT NULL,
+    PRIMARY KEY (CPF_inquilino, num_registro, dt_proposta),
+    FOREIGN KEY (CPF_inquilino) REFERENCES Inquilino(CPF),
+    FOREIGN KEY (num_registro) REFERENCES Imovel(num_registro)
+);
+
+-- Relacionamento ternário entre Inquilino, Proprietário e Imóvel
+CREATE TABLE Contrato (
+    num_contrato INT PRIMARY KEY AUTO_INCREMENT,
+    CPF_inquilino CHAR(11) NOT NULL,
+    CPF_proprietario CHAR(11) NOT NULL,
+    num_registro INT NOT NULL,
+    Duracao INT NOT NULL,
+    valor_final DECIMAL(15, 2) NOT NULL,
+    FOREIGN KEY (CPF_inquilino) REFERENCES Inquilino(CPF),
+    FOREIGN KEY (CPF_proprietario) REFERENCES Proprietario(CPF),
+    FOREIGN KEY (num_registro) REFERENCES Imovel(num_registro)
+);
