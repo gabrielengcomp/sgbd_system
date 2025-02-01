@@ -30,12 +30,42 @@ def execute_query(conn, query):
         return []
 
 # Função para exibir resultados de consultas
-def show_results(results):
+def show_results(results, columns=None):
+    # Cria uma nova janela para exibir os resultados
+    result_window = tk.Toplevel()
+    result_window.title("Resultados da Consulta")
+    result_window.geometry("800x600")
+
+    # Frame para a Treeview
+    tree_frame = tk.Frame(result_window)
+    tree_frame.pack(expand=True, fill="both", padx=10, pady=10)
+
+    # Cria a Treeview
+    tree = ttk.Treeview(tree_frame, columns=columns, show="headings")
+    tree.pack(expand=True, fill="both")
+
+    # Configura as colunas
+    if columns:
+        for col in columns:
+            tree.heading(col, text=col)
+            tree.column(col, width=100, anchor="center")
+
+    # Insere os resultados na Treeview
     if results:
-        result_str = "\n\n".join([str(result) for result in results])
-        messagebox.showinfo("Resultados", result_str)
+        for row in results:
+            tree.insert("", "end", values=row)
     else:
-        messagebox.showinfo("Resultados", "Nenhum resultado encontrado.")
+        # Se não houver resultados, exibe uma mensagem
+        tree.insert("", "end", values=["Nenhum resultado encontrado."])
+
+    # Adiciona uma barra de rolagem
+    scrollbar = ttk.Scrollbar(tree_frame, orient="vertical", command=tree.yview)
+    scrollbar.pack(side="right", fill="y")
+    tree.configure(yscrollcommand=scrollbar.set)
+
+    # Botão para fechar a janela
+    close_button = tk.Button(result_window, text="Fechar", command=result_window.destroy, font=("Arial", 12))
+    close_button.pack(pady=10)
 
 # Funções para cada consulta específica
 def query_cliente_proposta(): # 1.4.1 - Todos os clientes cadastrados e que já fizeram alguma proposta
@@ -43,7 +73,7 @@ def query_cliente_proposta(): # 1.4.1 - Todos os clientes cadastrados e que já 
     if conn:
         query = "SELECT distinct CPF, Nome_cliente FROM Cliente, Proposta WHERE CPF = CPF_inquilino"
         results = execute_query(conn, query)
-        show_results(results)
+        show_results(results, columns=["CPF", "Nome do Cliente"])
         conn.close()# Função da biblioteca fornecida
 
 def query_imovel(): # 1.4.2 - Todos os imóveis cadastrados (alugados ou não)
@@ -51,15 +81,21 @@ def query_imovel(): # 1.4.2 - Todos os imóveis cadastrados (alugados ou não)
     if conn:
         query = "SELECT num_registro, Endereco_cidade, Endereco_rua, Endereco_num FROM Imovel"
         results = execute_query(conn, query)
-        show_results(results)
+        show_results(results, columns=["Nº Registro", "Cidade", "Rua", "Número"])
         conn.close()
 
-def query_proposta_imovel(): # 1.4.3 - Listar as ofertas feitas para um determinado imóvel
+def query_proposta_imovel():  # 1.4.3 - Listar as ofertas feitas para um determinado imóvel
     conn = connect_to_database()
     if conn:
-        query = "SELECT num_registro, valor_proposta FROM Proposta WHERE num_registro = 2"
-        results = execute_query(conn, query)
-        show_results(results)
+        # Solicita o número de registro do imóvel ao usuário
+        num_registro = simpledialog.askinteger("Número de Registro", "Digite o número de registro do imóvel:")
+        
+        if num_registro is not None:  # Verifica se o usuário não cancelou a entrada
+            query = f"SELECT num_registro, valor_proposta FROM Proposta WHERE num_registro = {num_registro}"
+            results = execute_query(conn, query)
+            show_results(results, columns=["Nº Registro", "Valor"])
+        else:
+            messagebox.showinfo("Cancelado", "Operação cancelada pelo usuário.")
         conn.close()
 
 def query_comissao_2022(): # 1.4.4 - Informar o corretor que obteve maior rendimento no ano de 2022.
@@ -67,100 +103,207 @@ def query_comissao_2022(): # 1.4.4 - Informar o corretor que obteve maior rendim
     if conn:
         query = "SELECT c.Nome_corretor, SUM(p.valor_proposta * c.comissao / 100) as total_comissao FROM Corretor as c JOIN Visita as v ON c.CRECI = v.CRECI JOIN Proposta as p ON v.num_registro = p.num_registro WHERE YEAR(p.dt_proposta) = 2022 GROUP BY c.CRECI ORDER BY total_comissao DESC LIMIT 1"
         results = execute_query(conn, query)
-        show_results(results)
+        show_results(results, columns=["Nome do Corretor com maior comissão"])
         conn.close()
 
 def query_imoveis_caros(): # 1.4.5 - Listar os 3 imóveis mais caros
     conn = connect_to_database()
     if conn:
-        query = "SELECT Endereco_cidade, Endereco_rua, Valor_imovel FROM Imovel ORDER BY Valor_imovel DESC LIMIT 3"
+        query = "SELECT num_registro, Endereco_cidade, Endereco_rua, Valor_imovel FROM Imovel ORDER BY Valor_imovel DESC LIMIT 3"
         results = execute_query(conn, query)
-        show_results(results)
+        show_results(results, columns=["Nº Registro", "Cidade", "Rua", "Valor"])
         conn.close()
 
 def query_imoveis_com_vagas(): # Imóveis com mais de 2 vagas de garagem
     conn = connect_to_database()
     if conn:
-        query = "SELECT Endereco_cidade, Endereco_rua, Vagas, Valor_imovel FROM Imovel WHERE Vagas > 2 ORDER BY Vagas DESC"
+        query = "SELECT num_registro, Endereco_cidade, Endereco_rua, Vagas, Valor_imovel FROM Imovel WHERE Vagas > 2 ORDER BY Vagas DESC"
         results = execute_query(conn, query)
-        show_results(results)
+        show_results(results, columns=["N° Registro","Cidade", "Rua", "Vagas"])
         conn.close()
 
 def query_imoveis_acima_600k(): # Imóveis com valor superior a 700 mil
     conn = connect_to_database()
     if conn:
-        query = "SELECT Endereco_cidade, Endereco_rua, Vagas, Valor_imovel FROM Imovel WHERE Valor_imovel > 600000"
+        query = "SELECT num_registro, Endereco_cidade, Endereco_rua, Vagas, Valor_imovel FROM Imovel WHERE Valor_imovel > 600000"
         results = execute_query(conn, query)
-        show_results(results)
+        show_results(results, columns=["Nº Registro", "Cidade", "Rua", "Valor"])
         conn.close()
 
 def query_cidades_imoveis(): # Cidades com maior número de imóveis cadastrados
     conn = connect_to_database()
     if conn:
-        query = "SELECT Endereco_cidade, COUNT(*) as num_imoveis FROM Imovel GROUP BY Endereco_cidade"
+        query = "SELECT Endereco_cidade, COUNT(*) as num_imoveis FROM Imovel GROUP BY Endereco_cidade ORDER BY num_imoveis DESC LIMIT 1"
         results = execute_query(conn, query)
-        show_results(results)
+        show_results(results, columns=["Cidade", "Qtd de Imóveis"])
         conn.close()
 
 def query_imoveis_com_4_comodos(): # Imóveis com mais de 4 cômodos
     conn = connect_to_database()
     if conn:
-        query = "SELECT Endereco_cidade, Endereco_rua, num_comodos, Valor_imovel FROM Imovel WHERE num_comodos > 4 ORDER BY num_comodos DESC"
+        query = "SELECT num_registro, Endereco_cidade, Endereco_rua, num_comodos FROM Imovel WHERE num_comodos > 4 ORDER BY num_comodos DESC"
         results = execute_query(conn, query)
-        show_results(results)
+        show_results(results, columns=["Nº Registro", "Cidade", "Rua", "Comodos"])
         conn.close()
 
 def query_imoveis_sem_visitas(): # Imóveis que não receberam nenhuma proposta
     conn = connect_to_database()
     if conn:
-        query = "SELECT i.Endereco_cidade, i.Endereco_rua FROM Imovel as i LEFT JOIN Visita as v ON i.num_registro = v.num_registro WHERE v.num_registro is NULL"
+        query = "SELECT i.num_registro, i.Endereco_cidade, i.Endereco_rua FROM Imovel as i LEFT JOIN Visita as v ON i.num_registro = v.num_registro WHERE v.num_registro is NULL"
         results = execute_query(conn, query)
-        show_results(results)
+        show_results(results, columns=["Nº Registro", "Cidade", "Rua"])
         conn.close()
 
 # Funções de atualização, remoção e inserção
 
-def insert_corretor(): # Insere um corretor no banco de dados
-    conn = connect_to_database()
-    if conn: # Coleta as informações referentes ao Corretor
-        creci = simpledialog.askstring("Inserir Corretor", "Digite o número do CRECI do corretor:")
-        nome = simpledialog.askstring("Inserir Corretor", "Digite o nome do corretor:")
-        comissao = simpledialog.askfloat("Inserir Corretor", "Digite a comissão do corretor (%):")
-        dt_inicio = simpledialog.askstring("Inserir Corretor", "Digite a data de início (AAAA-MM-DD):")
-        if creci and nome and comissao and dt_inicio:
-            query = f"INSERT INTO Corretor (CRECI, Nome_corretor, dt_inicio, comissao) VALUES ('{creci}', '{nome}', '{dt_inicio}', {comissao})"
-            try:
-                cursor = conn.cursor()
-                cursor.execute(query)
-                conn.commit()
-                messagebox.showinfo("Sucesso", "Corretor inserido com sucesso!")
-            except mysql.connector.Error as err:
-                messagebox.showerror("Erro", f"Erro ao inserir corretor: {err}")
-        conn.close()
+def insert_corretor():
+    # Cria uma nova janela para inserção de dados
+    insert_window = tk.Toplevel()
+    insert_window.title("Inserir Corretor")
+    insert_window.geometry("400x300")
 
-def insert_imovel(): # Insere um imóvel no banco de dados
-    conn = connect_to_database()
-    if conn: # Coleta as informações referentes ao Imóvel
-        num_registro = simpledialog.askstring("Inserir Imóvel", "Digite o número de registro do imóvel:")
-        cidade = simpledialog.askstring("Inserir Imóvel", "Digite a cidade do imóvel:")
-        rua = simpledialog.askstring("Inserir Imóvel", "Digite a rua do imóvel:")
-        num = simpledialog.askinteger("Inserir Imóvel", "Digite o número do imóvel:")
-        valor = simpledialog.askfloat("Inserir Imóvel", "Digite o valor do imóvel:")
-        vagas = simpledialog.askinteger("Inserir Imóvel", "Digite o número de vagas do imóvel:")
-        area = simpledialog.askfloat("Inserir Imóvel", "Digite a área do imóvel (m²):")
-        num_comodos = simpledialog.askinteger("Inserir Imóvel", "Digite o número de cômodos do imóvel:")
-        dt_registro = simpledialog.askstring("Inserir Imóvel", "Digite a data de registro (AAAA-MM-DD):")
-        
-        if num_registro and cidade and rua and num and valor and vagas and area and num_comodos and dt_registro:
-            query = f"INSERT INTO Imovel (num_registro, Endereco_cidade, Endereco_rua, Endereco_num, Area, num_comodos, Vagas, Valor_imovel, dt_registro) VALUES ({num_registro}, '{cidade}', '{rua}', {num}, {area}, {num_comodos}, {vagas}, {valor}, '{dt_registro}')"
-            try:
-                cursor = conn.cursor()
-                cursor.execute(query)
-                conn.commit()
-                messagebox.showinfo("Sucesso", "Imóvel inserido com sucesso!")
-            except mysql.connector.Error as err:
-                messagebox.showerror("Erro", f"Erro ao inserir imóvel: {err}")
-        conn.close()
+    # Função para coletar os dados e inserir no banco de dados
+    def submit_corretor():
+        creci = creci_entry.get()
+        nome = nome_entry.get()
+        comissao = comissao_entry.get()
+        dt_inicio = dt_inicio_entry.get()
+
+        if creci and nome and comissao and dt_inicio:
+            conn = connect_to_database()
+            if conn:
+                query = f"INSERT INTO Corretor (CRECI, Nome_corretor, dt_inicio, comissao) VALUES ('{creci}', '{nome}', '{dt_inicio}', {comissao})"
+                try:
+                    cursor = conn.cursor()
+                    cursor.execute(query)
+                    conn.commit()
+                    messagebox.showinfo("Sucesso", "Corretor inserido com sucesso!")
+                    insert_window.destroy()  # Fecha a janela após a inserção
+                except mysql.connector.Error as err:
+                    messagebox.showerror("Erro", f"Erro ao inserir corretor: {err}")
+                finally:
+                    conn.close()
+        else:
+            messagebox.showwarning("Aviso", "Todos os campos devem ser preenchidos!")
+
+    # Função para cancelar a operação
+    def cancel():
+        insert_window.destroy()  # Fecha a janela sem fazer nada
+
+    # Campos de entrada
+    tk.Label(insert_window, text="CRECI:").grid(row=0, column=0, padx=10, pady=10)
+    creci_entry = tk.Entry(insert_window)
+    creci_entry.grid(row=0, column=1, padx=10, pady=10)
+
+    tk.Label(insert_window, text="Nome:").grid(row=1, column=0, padx=10, pady=10)
+    nome_entry = tk.Entry(insert_window)
+    nome_entry.grid(row=1, column=1, padx=10, pady=10)
+
+    tk.Label(insert_window, text="Comissão (%):").grid(row=2, column=0, padx=10, pady=10)
+    comissao_entry = tk.Entry(insert_window)
+    comissao_entry.grid(row=2, column=1, padx=10, pady=10)
+
+    tk.Label(insert_window, text="Data de Início (AAAA-MM-DD):").grid(row=3, column=0, padx=10, pady=10)
+    dt_inicio_entry = tk.Entry(insert_window)
+    dt_inicio_entry.grid(row=3, column=1, padx=10, pady=10)
+
+    # Botão para confirmar a inserção
+    submit_button = tk.Button(insert_window, text="Inserir", command=submit_corretor)
+    submit_button.grid(row=4, column=0, pady=20, padx=10)
+
+    # Botão para cancelar
+    cancel_button = tk.Button(insert_window, text="Cancelar", command=cancel)
+    cancel_button.grid(row=4, column=1, pady=20, padx=10)
+
+def insert_imovel():
+    # Cria uma nova janela para inserção de dados
+    insert_window = tk.Toplevel()
+    insert_window.title("Inserir Imóvel")
+    insert_window.geometry("500x500")
+
+    # Função para coletar os dados e inserir no banco de dados
+    def submit_imovel():
+        num_registro = num_registro_entry.get()
+        cidade = cidade_entry.get()
+        rua = rua_entry.get()
+        num = num_entry.get()
+        valor = valor_entry.get()
+        vagas = vagas_entry.get()
+        area = area_entry.get()
+        num_comodos = num_comodos_entry.get()
+        dt_registro = dt_registro_entry.get()
+
+        # Verifica se todos os campos foram preenchidos
+        if (num_registro and cidade and rua and num and valor and vagas and area and num_comodos and dt_registro):
+            conn = connect_to_database()
+            if conn:
+                query = f"""
+                INSERT INTO Imovel 
+                (num_registro, Endereco_cidade, Endereco_rua, Endereco_num, Area, num_comodos, Vagas, Valor_imovel, dt_registro) 
+                VALUES 
+                ({num_registro}, '{cidade}', '{rua}', {num}, {area}, {num_comodos}, {vagas}, {valor}, '{dt_registro}')
+                """
+                try:
+                    cursor = conn.cursor()
+                    cursor.execute(query)
+                    conn.commit()
+                    messagebox.showinfo("Sucesso", "Imóvel inserido com sucesso!")
+                    insert_window.destroy()  # Fecha a janela após a inserção
+                except mysql.connector.Error as err:
+                    messagebox.showerror("Erro", f"Erro ao inserir imóvel: {err}")
+                finally:
+                    conn.close()
+        else:
+            messagebox.showwarning("Aviso", "Todos os campos devem ser preenchidos!")
+
+    # Função para cancelar a operação
+    def cancel():
+        insert_window.destroy()  # Fecha a janela sem fazer nada
+
+    # Campos de entrada
+    tk.Label(insert_window, text="Nº Registro:").grid(row=0, column=0, padx=10, pady=10)
+    num_registro_entry = tk.Entry(insert_window)
+    num_registro_entry.grid(row=0, column=1, padx=10, pady=10)
+
+    tk.Label(insert_window, text="Cidade:").grid(row=1, column=0, padx=10, pady=10)
+    cidade_entry = tk.Entry(insert_window)
+    cidade_entry.grid(row=1, column=1, padx=10, pady=10)
+
+    tk.Label(insert_window, text="Rua:").grid(row=2, column=0, padx=10, pady=10)
+    rua_entry = tk.Entry(insert_window)
+    rua_entry.grid(row=2, column=1, padx=10, pady=10)
+
+    tk.Label(insert_window, text="Número:").grid(row=3, column=0, padx=10, pady=10)
+    num_entry = tk.Entry(insert_window)
+    num_entry.grid(row=3, column=1, padx=10, pady=10)
+
+    tk.Label(insert_window, text="Valor do Imóvel:").grid(row=4, column=0, padx=10, pady=10)
+    valor_entry = tk.Entry(insert_window)
+    valor_entry.grid(row=4, column=1, padx=10, pady=10)
+
+    tk.Label(insert_window, text="Vagas de Garagem:").grid(row=5, column=0, padx=10, pady=10)
+    vagas_entry = tk.Entry(insert_window)
+    vagas_entry.grid(row=5, column=1, padx=10, pady=10)
+
+    tk.Label(insert_window, text="Área (m²):").grid(row=6, column=0, padx=10, pady=10)
+    area_entry = tk.Entry(insert_window)
+    area_entry.grid(row=6, column=1, padx=10, pady=10)
+
+    tk.Label(insert_window, text="Nº de Cômodos:").grid(row=7, column=0, padx=10, pady=10)
+    num_comodos_entry = tk.Entry(insert_window)
+    num_comodos_entry.grid(row=7, column=1, padx=10, pady=10)
+
+    tk.Label(insert_window, text="Data de Registro (AAAA-MM-DD):").grid(row=8, column=0, padx=10, pady=10)
+    dt_registro_entry = tk.Entry(insert_window)
+    dt_registro_entry.grid(row=8, column=1, padx=10, pady=10)
+
+    # Botão para confirmar a inserção
+    submit_button = tk.Button(insert_window, text="Inserir", command=submit_imovel)
+    submit_button.grid(row=9, column=0, pady=20, padx=10)
+
+    # Botão para cancelar
+    cancel_button = tk.Button(insert_window, text="Cancelar", command=cancel)
+    cancel_button.grid(row=9, column=1, pady=20, padx=10)
 
 def update_record(): # Atualiza quaisquer registro dad três tabelas principais
     conn = connect_to_database()
@@ -341,7 +484,7 @@ def create_main_interface(root):
 
     # Adiciona conteúdo ao frame de Consultas
     consultas = [
-        ("Clientes e Propostas", query_cliente_proposta),
+        ("Clientes com Propostas", query_cliente_proposta),
         ("Imóveis Cadastrados", query_imovel),
         ("Propostas para Imóvel", query_proposta_imovel),
         ("Comissões dos Corretores (2022)", query_comissao_2022),
